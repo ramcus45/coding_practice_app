@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>Submission History</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container mt-4">
+
+    <h2 class="mb-4">Your Submission History</h2>
+    <a href="/dashboard" class="btn btn-primary mb-3">← Back to Dashboard</a>
+
+    <table class="table table-dark table-hover table-bordered">
+        <thead>
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">Task</th>
+                <th scope="col">Submitted At</th>
+                <th scope="col">AI Assistance</th>
+                <th scope="col">Time(seconds)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for submission in submissions %}
+            <tr>
+                <th scope="row">{{ loop.index }}</th>
+                <td>{{ submission.task }}</td>
+                <td>{{ submission.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    {% if submission.used_ai %}
+                        <span class="badge bg-success">Yes</span>
+                    {% else %}
+                        <span class="badge bg-secondary">No</span>
+                    {% endif %}
+                </td>
+                <td>{{submission.duration_seconds}}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="text-center">No submissions found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
