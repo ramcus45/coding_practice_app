@@ -18,6 +18,24 @@
         }
     </style>
 </head>
+<script src="{{ url_for('static', filename='js/register.js') }}"></script>
+<!-- Warning Modal -->
+<div class="modal fade" id="warningModal" tabindex="-1" aria-labelledby="warningModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bg-dark text-light">
+        <div class="modal-header">
+          <h5 class="modal-title" id="warningModalLabel">Registration Error</h5>
+        </div>
+        <div class="modal-body" id="modalMessage">
+          There are issues with your form. Please fix them before submitting.
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
 <body>
 
 <div class="card register-card p-4 shadow-lg">
@@ -26,10 +44,12 @@
         <div class="mb-3">
             <label for="username" class="form-label">Username</label>
             <input type="text" name="username" class="form-control" id="username" required>
+            <small id="usernameFeedback" class="text-danger d-none"></small>
         </div>
         <div class="mb-3">
             <label for="password" class="form-label">Password</label>
             <input type="password" name="password" class="form-control" id="password" required>
+            <small id="passwordFeedback" class="text-warning d-none"></small>
         </div>
         <button type="submit" class="btn btn-primary w-100">Register</button>
     </form>

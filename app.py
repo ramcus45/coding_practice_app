@@ -336,6 +336,12 @@ def submission_history():
     submissions = CodeSubmission.query.filter_by(user_id=session['user_id']).order_by(CodeSubmission.timestamp.desc()).all()
     return render_template('history.html', submissions=submissions)
 
+@app.route('/check_username', methods=['POST'])
+def check_username():
+    username = request.form.get('username')
+    exists = User.query.filter_by(username=username).first() is not None
+    return jsonify({'taken': exists})
+
 
 
 if __name__ == '__main__':
