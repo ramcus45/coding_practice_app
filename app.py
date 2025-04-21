@@ -1,14 +1,14 @@
 from functools import wraps
 from flask import Flask, make_response, render_template, request, jsonify, redirect, url_for, session
-from flask_sqlalchemy import SQLAlchemy
 import openai
 from datetime import datetime, timezone
 import dotenv
 import os
-import hashlib
+from utils import hash_password
 import subprocess
 from flask import flash
-from sqlalchemy.orm import joinedload
+import requests
+from models import db, User, CodeSubmission, CompletedTask
 
 
 
@@ -22,14 +22,19 @@ password = os.getenv("password")
 database = os.getenv("database")
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "your_secret_key")
+app.secret_key = os.getenv("SECRET_KEY")
 
 # Configure SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
 print("DB URI:", app.config['SQLALCHEMY_DATABASE_URI'])
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+db.init_app(app)
+
+# Create the database tables if they don't exist
+with app.app_context():
+    db.create_all()
+
 # Configure MySQL connection
 
 client = openai.OpenAI(api_key=api_key)  # Create OpenAI client
@@ -67,38 +72,6 @@ PREDEFINED_TASKS = {
 }
 
 
-# Models
-class User(db.Model):
-    __tablename__ = 'users'  # <-- match your existing table name here
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(255), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
-
-class CodeSubmission(db.Model):
-    __tablename__ = 'code_submissions'  # <-- match your existing table name here
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    task = db.Column(db.Text)
-    user_code = db.Column(db.Text)
-    hint = db.Column(db.Text)
-    used_ai = db.Column(db.Boolean, default=True)  # ✅ NEW FIELD
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)  # Fixed here
-    start_time = db.Column(db.DateTime)
-    end_time = db.Column(db.DateTime)
-    duration_seconds = db.Column(db.Integer)
-
-
-class CompletedTask(db.Model):
-    __tablename__ = 'completed_tasks'  # <-- match your existing table name here
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    task_key = db.Column(db.String(255))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)  # Fixed here
-    __table_args__ = (db.UniqueConstraint('user_id', 'task_key', name='_user_task_uc'),)
-
-
-
-
 def login_required(view_func):
     @wraps(view_func)
     def wrapper(*args, **kwargs):
@@ -121,9 +94,7 @@ def nocache(view):
 
 
 
-# Hash password using SHA-3
-def hash_password(password):
-    return hashlib.sha3_256(password.encode()).hexdigest()
+
 
 @app.route('/')
 def home():
@@ -141,9 +112,10 @@ def register():
             db.session.add(user)
             db.session.commit()
             return redirect(url_for('login'))
-        except:
+        except Exception as e:
             db.session.rollback()
-            return "Username already exists! Try another."
+            flash("Username already exists! Try another.", "danger")
+            return render_template('register.html')
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -159,7 +131,8 @@ def login():
             session['username'] = user.username
             return redirect(url_for('dashboard'))
         else:
-            return "Invalid username or password!"
+            flash("Invalid username or password!", "danger")
+            return render_template('login.html')
     return render_template('login.html')
 
 @app.route('/dashboard')
@@ -196,7 +169,6 @@ def select_task():
 def execute_code():
     user_code = request.form['user_code']
     task_key = request.form['task_key']
-
     task = PREDEFINED_TASKS.get(task_key)
     if not task:
         return jsonify({"error": "Invalid task key."})
@@ -257,6 +229,31 @@ def run_code():
 
     return jsonify({"output": output})
 
+def get_openrouter_hint(prompt, model):
+    headers = {
+        "Authorization": f"Bearer {os.getenv('openrouter_api_key')}",
+        "HTTP-Referer": "http://localhost:5000",  # or your domain
+        "X-Title": "AI Code Practice"
+    }
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 100,
+    }
+
+    try:
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=payload
+        )
+        data = response.json()
+        return data['choices'][0]['message']['content']
+    except Exception as e:
+        print("OpenRouter hint error:", e)
+        return "[Error] Couldn't fetch hint from OpenRouter."
+
+
 
 
 @app.route('/get_hint', methods=['POST'])
@@ -265,22 +262,40 @@ def run_code():
 def get_hint():
     user_code = request.form['user_code']
     task_key = request.form['selectedTask']
+    provider = request.form.get("provider", "openai")
+    model = request.form.get("model", "gpt-4")
+
     task_info = PREDEFINED_TASKS.get(task_key)
     task_description = task_info["description"] if task_info else "Unknown task"
-    prompt = (f"You're an expert python teacher and you assigned your student with: {task_description}"+
-    f"Review the following code:\n{user_code} and provide a short hint 200 character max to help them complete the task.")
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=50
+
+    prompt = (
+        f"You're an expert python teacher and you assigned your student with: {task_description}\n"
+        f"Review the following code:\n{user_code}\n"
+        f"Provide a short hint (max 200 characters) to help them complete the task."
     )
-    hint = response.choices[0].message.content if response.choices else "No hint generated."
-    return jsonify({"hint": hint})
+
+    if provider in {"deepseek", "llama"}:
+        return jsonify({"hint": get_openrouter_hint(prompt, model+":free")})
+
+    elif provider == "openai":
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=50
+        )
+        hint = response.choices[0].message.content if response.choices else "No hint generated."
+        return jsonify({"hint": hint})
+
+    else:
+        return jsonify({"hint": "Unsupported provider."})
+
 
 @app.route('/submit_code', methods=['POST'])
 @login_required
 @nocache
 def submit_code():
+    provider = request.form['provider']
+    model = request.form['model']
     task = request.form['task']
     user_code = request.form['user_code']
     hint = request.form['hint']
@@ -306,7 +321,9 @@ def submit_code():
         start_time=start_dt,
         end_time=end_time,
         duration_seconds=duration_seconds,
-        used_ai=used_ai
+        used_ai=used_ai,
+        provider = provider,
+        model_used = model
     )
     db.session.add(submission)
     db.session.commit()
@@ -320,5 +337,8 @@ def submission_history():
     return render_template('history.html', submissions=submissions)
 
 
+
 if __name__ == '__main__':
     app.run(debug=True)
+
+

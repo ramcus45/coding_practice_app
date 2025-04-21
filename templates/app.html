@@ -21,21 +21,84 @@
       border: 1px solid #ced4da;
       border-radius: 4px;
     }
+    .btn-openai {
+      color: black;
+      border-color: black;
+    }
+    .btn-openai.active,
+    .btn-check:checked + .btn-openai {
+      background-color: black;
+      color: white;
+    }
+
+    .btn-deepseek {
+      color: #0d6efd;
+      border-color: #0d6efd;
+    }
+    .btn-deepseek.active,
+    .btn-check:checked + .btn-deepseek {
+      background-color: #0d6efd;
+      color: white;
+    }
+
+    .btn-llama {
+      color: #17c1e8; /* Light blue */
+      border-color: #17c1e8;
+    }
+    .btn-llama.active,
+    .btn-check:checked + .btn-llama {
+      background-color: #17c1e8;
+      color: white;
+    }
+    .model-locked label {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
   </style>
 </head>
 <body>
 
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">AI Code Practice</a>
-      <div class="d-flex">
-        <a href="/logout" class="btn btn-danger">Logout</a>
-        <a href="/history" class="btn btn-outline-light me-2">History</a>
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid align-items-center">
+    <a class="navbar-brand" href="#">AI Code Practice</a>
 
-      </div>
+    <!-- Model Toggle Centered -->
+    <div class="btn-group" role="group" id="modelToggle">
+      <!-- OpenAI -->
+      <input type="radio" class="btn-check" name="modelOption" id="openaiBtn" autocomplete="off" value="openai:gpt-4" checked>
+      <label class="btn btn-openai d-flex align-items-center gap-2" for="openaiBtn">
+        <img src="{{ url_for('static', filename='media/openai_logo.png') }}" alt="OpenAI" width="20" height="20">
+        OpenAI
+      </label>
+    
+      <!-- DeepSeek -->
+      <input type="radio" class="btn-check" name="modelOption" id="deepseekBtn" autocomplete="off" value="deepseek:deepseek/deepseek-chat-v3-0324:free">
+      <label class="btn btn-deepseek d-flex align-items-center gap-2" for="deepseekBtn">
+        <img src="{{ url_for('static', filename='media/DeepSeek_logo_icon.png') }}" alt="DeepSeek" width="20" height="20">
+        DeepSeek
+      </label>
+    
+      <!-- LLaMA -->
+      <input type="radio" class="btn-check" name="modelOption" id="llamaBtn" autocomplete="off" value="llama:meta-llama/llama-4-maverick:free">
+      <label class="btn btn-llama d-flex align-items-center gap-2" for="llamaBtn">
+        <img src="{{ url_for('static', filename='media/meta-icon.png') }}" alt="LLaMA" width="20" height="20">
+        LLaMA
+      </label>
     </div>
-  </nav>
+    
+    
+    
+
+    <!-- Right side buttons -->
+    <div class="d-flex">
+      <a href="/history" class="btn btn-outline-light me-2">History</a>
+      <a href="/logout" class="btn btn-danger">Logout</a>
+    </div>
+  </div>
+</nav>
+
 
   <div class="container-fluid mt-4">
     <div class="row">
@@ -115,6 +178,10 @@
     </div>
   </div>
 
+
+  
+  
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
@@ -135,164 +202,9 @@
           console.error("Could not parse tasks from backend:", e);
       }
     </script>
-    
-    
-    
 
-    <script>
-
-        let selectedTaskKey = "";
-        function selectTask(taskKey) {
-            selectedTaskKey = taskKey;
-            const task = allTasks[taskKey];
-
-            if (task) {
-                document.getElementById("selectedTaskDesc").innerText = task.description;
-            } else {
-                document.getElementById("selectedTaskDesc").innerText = "Invalid task selected.";
-            }
-
-            // Disable the submit button until tests are run again
-            document.getElementById("submitBtn").disabled = true;
-
-            // Lock in the AI toggle once a task is selected
-            document.getElementById("aiToggle").disabled = true;
-
-            // ✅ Send a request to the server to set the start_time in the session
-            fetch('/select_task', {
-                method: 'POST',
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: `task_key=${encodeURIComponent(taskKey)}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Task selected and start_time set:", data);
-            })
-            .catch(error => {
-                console.error("Error setting start_time:", error);
-            });
-        }
-
-
-
-        function getHint() {
-            console.log("➡️ getHint() triggered");
-            let userCode = editor.getValue();
-            if (!selectedTaskKey) {
-                alert("Please select a task first.");
-                return;
-            }
-
-            fetch('/get_hint', {
-                method: 'POST',
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: `user_code=${encodeURIComponent(userCode)}&selectedTask=${encodeURIComponent(selectedTaskKey)}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById("code_hint").innerText = data.hint;
-            });
-        }
-
-        function runCode() {
-            let userCode = editor.getValue();
-            fetch('/run_code', {
-                method: 'POST',
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: `user_code=${encodeURIComponent(userCode)}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById("run_result").innerText = data.output;
-            });
-        }
-
-
-        function testCode() {
-            let userCode = editor.getValue();
-            if (!selectedTaskKey) {
-                alert("Please select a task first.");
-                return;
-            }
-
-            fetch('/execute_code', {
-                method: 'POST',
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: `user_code=${encodeURIComponent(userCode)}&task_key=${encodeURIComponent(selectedTaskKey)}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                let resultContainer = document.getElementById("execution_result");
-                resultContainer.innerHTML = "";
-
-                data.results.forEach(test => {
-                    let status = test.passed ? "✅ Passed" : "❌ Failed";
-                    resultContainer.innerHTML += `<p><b>Input:</b> ${test.input} <br> <b>Expected:</b> ${test.expected} <br> <b>Output:</b> ${test.actual} <br> <b>Status:</b> ${status}</p><hr>`;
-                });
-
-                // Enable or disable the submit button
-                const submitBtn = document.getElementById("submitBtn");
-                if (data.all_tests_passed) {
-                    submitBtn.disabled = false;
-                } else {
-                    submitBtn.disabled = true;
-                }
-            });
-        }
-
-
-        function refreshCheckmarks() {
-          const usedAI = document.getElementById("aiToggle").checked;
-
-          for (const key in allTasks) {
-              const span = document.getElementById("check-" + key);
-              if (completedByMode.has(`${key}_${usedAI}`)) {
-                  span.innerText = "✅";
-              } else {
-                  span.innerText = "";
-              }
-          }
-      }
-      refreshCheckmarks();
-
-
-
-        function submitCode() {
-        let task = selectedTaskKey;
-        let userCode = editor.getValue();
-        let hint = document.getElementById("code_hint").innerText;
-        let usedAI = document.getElementById("aiToggle").checked; // ✅ NEW
-
-        if (!task) {
-            alert("Please select a task first.");
-            return;
-        }
-        fetch('/submit_code', {
-            method: 'POST',
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: `task=${encodeURIComponent(task)}&user_code=${encodeURIComponent(userCode)}&hint=${encodeURIComponent(hint)}&used_ai=${usedAI}` // ✅ MODIFIED
-        })
-        .then(response => response.json())
-        .then(data => {
-            alert(data.message);
-        });
-}
-
-
-        // Initialize CodeMirror
-        var editor = CodeMirror.fromTextArea(document.getElementById("code_editor"), {
-            mode: "python",
-            theme: "dracula",
-            lineNumbers: true
-        });
-
-        // Toggle hint button based on AI assistance checkbox
-        document.getElementById('aiToggle').addEventListener('change', function () {
-        document.getElementById('hintBtn').disabled = !this.checked;
-        refreshCheckmarks();
-});
-
-    </script>
+    <!-- Main JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 </body>
 </html>

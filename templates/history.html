@@ -18,6 +18,7 @@
                 <th scope="col">Submitted At</th>
                 <th scope="col">AI Assistance</th>
                 <th scope="col">Time(seconds)</th>
+                <th scope="col">Used AI model</th>
             </tr>
         </thead>
         <tbody>
@@ -34,6 +35,19 @@
                     {% endif %}
                 </td>
                 <td>{{submission.duration_seconds}}</td>
+                <td>
+                    {% if not submission.used_ai %}
+                        <span class="badge bg-success">None</span>
+                    {% else %}
+                    {% if submission.provider == 'openai' %}
+                    <img src="{{ url_for('static', filename='media/openai_logo.png') }}" alt="OpenAI" width="20" height="20"> - {{submission.model_used}}
+                    {% elif submission.provider == 'deepseek' %}
+                    <img src="{{ url_for('static', filename='media/DeepSeek_logo_icon.png') }}" alt="DeepSeek" width="20" height="20"> - {{submission.model_used}}
+                    {% elif submission.provider == 'llama' %}
+                    <img src="{{ url_for('static', filename='media/meta-icon.png') }}" alt="LLaMA" width="20" height="20"> - {{submission.model_used}}           
+                    {% endif %}   
+                    {% endif %}
+                </td>
             </tr>
             {% else %}
             <tr>

@@ -5,7 +5,7 @@ __pycache__/
 myvenv/
 # C extensions
 *.so
-
+tests/
 # Distribution / packaging
 .Python
 build/
@@ -169,3 +169,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+report.html
+assets/style.css
