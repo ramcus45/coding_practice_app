@@ -171,3 +171,4 @@ cython_debug/
 .pypirc
 report.html
 assets/style.css
+app.zip

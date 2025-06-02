@@ -180,16 +180,15 @@ def execute_code():
         try:
             input_val = case["input"]
             expected_output = case["expected_output"]
-
             # Assume function is named solution()
             wrapped_code = f"{user_code}\nprint(solution({input_val}))"
             result = subprocess.run(["py", "-c", wrapped_code], capture_output=True, text=True, timeout=5)
             output = result.stdout.strip() if result.returncode == 0 else result.stderr.strip()
-            passed = output == expected_output
+            passed = str(output) == str(expected_output).strip("'")
 
             results.append({
-                "input": input_val,
-                "expected": expected_output,
+                "input": str(input_val).strip("'"),
+                "expected": str(expected_output).strip("'"),
                 "actual": output,
                 "passed": passed
             })
