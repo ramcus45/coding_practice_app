@@ -15,18 +15,18 @@ from models import db, User, CodeSubmission, CompletedTask
 # Load environment variables
 dotenv.load_dotenv()
 api_key = os.getenv("chat_gpt_api_key")
-host = os.getenv("host")
-port = os.getenv("port")
-user = os.getenv("user")
-password = os.getenv("password")
-database = os.getenv("database")
+
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
 # Configure SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
-print("DB URI:", app.config['SQLALCHEMY_DATABASE_URI'])
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    f"mysql+pymysql://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}"
+    f"@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}"
+)
+
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -344,6 +344,6 @@ def check_username():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
 
 
